@@ -11,6 +11,10 @@ RUN npm ci --ignore-scripts
 FROM base AS build
 COPY --from=deps /app/node_modules ./node_modules
 COPY src/web/ ./
+# Dummy value: prisma.config.ts requires DATABASE_URL to be set, but `prisma
+# generate` never connects to it. The real value is injected at runtime by
+# Container Apps and never reaches this build-only stage.
+ENV DATABASE_URL="postgresql://user:password@localhost:5432/db"
 RUN npx prisma generate
 RUN npm run build
 

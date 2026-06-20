@@ -32,12 +32,12 @@ ACR name, login server, and Container App name are read from Bicep deployment ou
 | `AZURE_TENANT_ID` | Azure AD tenant ID |
 | `AZURE_SUBSCRIPTION_ID` | Azure subscription ID |
 | `AZURE_RESOURCE_GROUP` | Resource group to deploy into |
-| `SUPABASE_CONNECTION_STRING` | Direct connection string (port 5432) |
+| `SUPABASE_CONNECTION_STRING` | Session pooler connection string (port 5432), in Prisma's URI format: `postgresql://postgres.<project-ref>:<password>@aws-0-<region>.pooler.supabase.com:5432/postgres` |
 | `ALERT_EMAIL` | Email to notify when budget thresholds are hit |
 
-The Supabase connection string is stored as a secret on the Container App and injected as `DATABASE_URL` (the env var Prisma reads).
+The Supabase connection string is stored as a secret on the Container App and injected as `DATABASE_URL` (the env var Prisma reads). It must be the `postgresql://` URI format — not the ADO.NET/Npgsql key-value format (`Host=...;Database=...;Username=...;Password=...`) used by the old EF Core app.
 
-Use the **direct Supabase connection** (port 5432), not the pooler — Prisma migrations require it.
+Use the **Session pooler** connection string (Supabase dashboard: **Project Settings → Database → Connection string → Session**), not the raw direct host (`db.<project-ref>.supabase.co`) and not the **Transaction** pooler. The direct host now resolves to an IPv6-only address, which GitHub Actions' hosted runners can't reach — the session pooler has an IPv4 endpoint and (unlike the transaction pooler on port 6543) preserves session semantics, so `prisma migrate deploy` still works correctly. Note the pooler username is `postgres.<project-ref>`, not just `postgres`.
 
 The app exposes `/healthz` (a Route Handler) for Container Apps liveness/readiness probes.
 
