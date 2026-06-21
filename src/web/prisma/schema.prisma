@@ -25,7 +25,7 @@ enum PlayerRole {
 }
 
 model Player {
-  id          String       @id @default(uuid())
+  id          String       @id @default(uuid()) @db.Uuid
   displayName String
   status      PlayerStatus @default(PENDING)
   role        PlayerRole   @default(PLAYER)
