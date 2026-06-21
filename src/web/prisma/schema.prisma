@@ -14,8 +14,20 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+enum PlayerStatus {
+  PENDING
+  APPROVED
+}
+
+enum PlayerRole {
+  PLAYER
+  ADMIN
+}
+
 model Player {
-  id       Int    @id @default(autoincrement())
-  name     String
-  gamesWon Int    @default(0)
+  id          String       @id @default(uuid())
+  displayName String
+  status      PlayerStatus @default(PENDING)
+  role        PlayerRole   @default(PLAYER)
+  createdAt   DateTime     @default(now())
 }

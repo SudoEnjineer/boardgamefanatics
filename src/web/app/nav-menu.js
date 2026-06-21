@@ -8,6 +8,9 @@ import Typography from "@mui/material/Typography";
 import List from "@mui/material/List";
 import ListItemButton from "@mui/material/ListItemButton";
 import ListItemText from "@mui/material/ListItemText";
+import Button from "@mui/material/Button";
+import Box from "@mui/material/Box";
+import { logout } from "./login/actions";
 
 export const drawerWidth = 250;
 
@@ -16,8 +19,12 @@ const navItems = [
   { label: "Players", href: "/players" },
 ];
 
-export default function NavMenu() {
+export default function NavMenu({ player }) {
   const pathname = usePathname();
+
+  const items = player?.role === "ADMIN"
+    ? [...navItems, { label: "Admin: Pending Players", href: "/admin/players" }]
+    : navItems;
 
   return (
     <Drawer
@@ -45,7 +52,7 @@ export default function NavMenu() {
         </Typography>
       </Toolbar>
       <List>
-        {navItems.map((item) => (
+        {items.map((item) => (
           <ListItemButton
             key={item.href}
             component={Link}
@@ -57,6 +64,31 @@ export default function NavMenu() {
           </ListItemButton>
         ))}
       </List>
+
+      <Box sx={{ p: 2 }}>
+        {player ? (
+          <>
+            <Typography variant="body2" noWrap>
+              {player.displayName}
+              {player.status === "PENDING" && " (pending approval)"}
+            </Typography>
+            <form action={logout}>
+              <Button type="submit" size="small" sx={{ color: "inherit", mt: 1 }}>
+                Log out
+              </Button>
+            </form>
+          </>
+        ) : (
+          <>
+            <Button component={Link} href="/login" size="small" sx={{ color: "inherit" }}>
+              Log in
+            </Button>
+            <Button component={Link} href="/signup" size="small" sx={{ color: "inherit" }}>
+              Sign up
+            </Button>
+          </>
+        )}
+      </Box>
     </Drawer>
   );
 }

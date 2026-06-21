@@ -74,11 +74,27 @@ There are no automated tests yet.
 
 Single Next.js app (App Router) using the `app/` convention:
 
-- **`app/layout.js`** — Root layout; renders the nav (`app/nav-menu.js`) and imports global styles.
+- **`app/layout.js`** — Root layout; calls `getCurrentPlayer()` and passes the result to the nav (`app/nav-menu.js`), imports global styles.
 - **`app/page.js`**, **`app/players/page.js`** — Page components (Server Components by default).
+- **`app/login/`**, **`app/signup/`** — Auth pages + their Server Actions (`actions.js`).
+- **`app/admin/players/`** — Admin-only pending-player approval queue.
 - **`app/healthz/route.js`** — Route Handler used by the Container Apps health probes.
 - **`lib/db.js`** — Exports a singleton `PrismaClient` instance. Import this wherever DB access is needed.
+- **`lib/auth.js`** — `getCurrentPlayer()`, `requireApproved()`, `requireAdmin()` — call these (not raw Supabase calls) to gate any page/action that needs an authenticated, approved, or admin player.
+- **`lib/supabase/`** — Supabase client factories: `client.js` (browser), `server.js` (Server Components/Actions, uses `next/headers` cookies), `proxy.js` (session refresh, used by root `proxy.js` — Next.js 16 renamed the `middleware` file convention to `proxy`).
 - **`prisma/schema.prisma`** — Prisma schema. Add new models here, then run a migration.
+
+## Authentication & Players
+
+Supabase Auth (not just Supabase Postgres) handles signup/login/sessions. The `Player` table (`prisma/schema.prisma`) extends Supabase's `auth.users`:
+
+- `id` is the same UUID as `auth.users.id` — populated by a database trigger on signup, not by the app.
+- `status`: `PENDING` (default on signup, read-only everywhere) or `APPROVED`.
+- `role`: `PLAYER` (default) or `ADMIN`.
+
+The `auth.users` → `Player` link (FK + `handle_new_player()` trigger that inserts a `PENDING` row on signup) lives in the `add_auth_trigger` migration, guarded with `IF EXISTS (... schema_name = 'auth')` — the `auth` schema only exists on Supabase-hosted Postgres, not local dev Postgres (`docker-compose.dev.yml`), so this migration is a no-op locally and only takes effect against Supabase.
+
+New env vars in `src/web/.env` (gitignored): `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` (Supabase's newer publishable-key format — browser-safe, unlike `DATABASE_URL`). Admin approval: `/admin/players` lists `PENDING` players for an `ADMIN`-role player to approve.
 
 ## Database
 
@@ -90,9 +106,36 @@ There are two Compose files at the repo root, for different purposes:
 - `docker-compose.dev.yml` — Postgres only, port 5432 published to the host. Use this when running the app with `npm run dev` directly on the host.
 - `docker-compose.yml` — full stack (`app` built from the root `Dockerfile`, plus `db`), for testing the production container image locally. `db` here also publishes port 5432, so don't run both files at once. This stack does **not** run migrations automatically — after `docker compose up -d --build`, run `npx prisma migrate deploy` from `src/web/` (with `DATABASE_URL` pointed at `localhost:5432`) before hitting any DB-backed route.
 
+## Roadmap
+
+The product vision: a board game collection + plays tracker. Players sign up (admin-approval gated, read-only until approved), track their own game collections (public read, self-only write), and log plays of games sourced from BoardGameGeek's catalog.
+
+**Done:** Player auth + admin approval workflow (see Authentication & Players above).
+
+**Next, in order:**
+
+### Phase 2: Game catalog (BoardGameGeek integration)
+
+Games are sourced from BoardGameGeek's XML API2, not freeform entries — one shared `Game` table caches BGG data, keyed by BGG's own id, referenced by every player's collection/plays. Any approved player can add a game to the local catalog if it isn't already cached — **no admin approval needed for games** (unlike player signups), since BGG itself is the authority on what's valid.
+
+BGG's API now requires `Authorization: Bearer <token>` — a real change from its historically open access (confirmed by testing; the docs page itself is behind a Cloudflare bot challenge that blocks automated fetching, so this was learned empirically, not from the wiki). `BGG_API_TOKEN` is already in `.env`. Confirmed endpoint shapes (tested directly):
+- `GET /xmlapi2/search?query={name}&type=boardgame` → `<items total="N"><item id="ID"><name type="primary|alternate" value="..."/><yearpublished value="YYYY"/></item>...</items>`
+- `GET /xmlapi2/thing?id={id}&stats=1` → full details: `thumbnail`, `image`, multiple `name` entries (primary + many alternates — use `type="primary"`), `description`, `yearpublished`, `minplayers`/`maxplayers`, `playingtime`/`minplaytime`/`maxplaytime`, `minage`
+
+Planned `Game` model: `bggId Int @id`, `name`, `yearPublished`, `minPlayers`, `maxPlayers`, `playingTimeMinutes`, `minAge`, `description` (`@db.Text`), `thumbnailUrl`, `imageUrl`, `cachedAt`. Needs an XML parser dependency (Node has none built in) — `fast-xml-parser` is the standard choice. Planned `lib/bgg.js`: `searchGames(query)`, `getGameDetails(bggId)`, `findOrCacheGame(bggId)` (check local cache first, fetch + `db.game.create` on miss).
+
+### Phase 3: Collections ("bookshelves")
+
+`CollectionEntry` joins `Player` ↔ `Game` (`@@unique([playerId, gameId])`). Public read (anyone can view anyone's collection), but only the owning player can edit their own — gate writes with `requireApproved()` from `lib/auth.js` plus an explicit ownership check (`session player.id === collection owner's id`) in the Server Action.
+
+### Phase 4: Plays
+
+`Play` (gameId, playedAt, notes) + a join table (`PlayParticipant`: playId, playerId, generic `won`/`score` fields). **Per-game win conditions and metrics are explicitly undesigned/deferred** — revisit the participant model once that design is settled, rather than guessing at a schema now.
+
 ## Key Conventions
 
 - Plain JavaScript (no TypeScript) for app code. `prisma.config.ts` is a Prisma tooling file and not part of the app build.
 - ORM: Prisma (`prisma-client-js` generator, with `linux-musl-openssl-3.0.x` added to `binaryTargets` for the Alpine-based Docker runtime).
 - New entities go in `prisma/schema.prisma`, then run `npx prisma migrate dev --name <name>`.
 - New pages go in `app/` as `page.js` files following Next.js App Router routing conventions.
+- `BGG_API_TOKEN` (`src/web/.env`, gitignored) is a bearer token for BoardGameGeek's XML API2 (`boardgamegeek.com/xmlapi2/...`), which now requires `Authorization: Bearer <token>` — used by the (not yet built) Game catalog caching feature.

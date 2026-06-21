@@ -1,15 +1,16 @@
 import Typography from "@mui/material/Typography";
-import Table from "@mui/material/Table";
-import TableHead from "@mui/material/TableHead";
-import TableBody from "@mui/material/TableBody";
-import TableRow from "@mui/material/TableRow";
-import TableCell from "@mui/material/TableCell";
+import List from "@mui/material/List";
+import ListItem from "@mui/material/ListItem";
+import ListItemText from "@mui/material/ListItemText";
 import { db } from "../../lib/db";
 
 export const dynamic = "force-dynamic";
 
 export default async function PlayersPage() {
-  const players = await db.player.findMany({ orderBy: { name: "asc" } });
+  const players = await db.player.findMany({
+    where: { status: "APPROVED" },
+    orderBy: { displayName: "asc" },
+  });
 
   return (
     <>
@@ -18,24 +19,15 @@ export default async function PlayersPage() {
       </Typography>
 
       {players.length === 0 ? (
-        <Typography>No players yet.</Typography>
+        <Typography>No approved players yet.</Typography>
       ) : (
-        <Table>
-          <TableHead>
-            <TableRow>
-              <TableCell>Name</TableCell>
-              <TableCell>Games Won</TableCell>
-            </TableRow>
-          </TableHead>
-          <TableBody>
-            {players.map((player) => (
-              <TableRow key={player.id}>
-                <TableCell>{player.name}</TableCell>
-                <TableCell>{player.gamesWon}</TableCell>
-              </TableRow>
-            ))}
-          </TableBody>
-        </Table>
+        <List>
+          {players.map((player) => (
+            <ListItem key={player.id} disableGutters>
+              <ListItemText primary={player.displayName} />
+            </ListItem>
+          ))}
+        </List>
       )}
     </>
   );
