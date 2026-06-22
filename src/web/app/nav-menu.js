@@ -22,9 +22,16 @@ const navItems = [
 export default function NavMenu({ player }) {
   const pathname = usePathname();
 
-  const items = player?.role === "ADMIN"
-    ? [...navItems, { label: "Admin: Pending Players", href: "/admin/players" }]
-    : navItems;
+  const items = [...navItems];
+  if (player) {
+    items.push({
+      label: "My Bookshelf",
+      href: `/players/${player.id}/collection`,
+    });
+  }
+  if (player?.role === "ADMIN") {
+    items.push({ label: "Admin: Pending Players", href: "/admin/players" });
+  }
 
   return (
     <Drawer

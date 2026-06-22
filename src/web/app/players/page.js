@@ -1,7 +1,8 @@
 import Typography from "@mui/material/Typography";
 import List from "@mui/material/List";
-import ListItem from "@mui/material/ListItem";
+import ListItemButton from "@mui/material/ListItemButton";
 import ListItemText from "@mui/material/ListItemText";
+import Link from "next/link";
 import { db } from "../../lib/db";
 
 export const dynamic = "force-dynamic";
@@ -23,9 +24,14 @@ export default async function PlayersPage() {
       ) : (
         <List>
           {players.map((player) => (
-            <ListItem key={player.id} disableGutters>
+            <ListItemButton
+              key={player.id}
+              component={Link}
+              href={`/players/${player.id}/collection`}
+              disableGutters
+            >
               <ListItemText primary={player.displayName} />
-            </ListItem>
+            </ListItemButton>
           ))}
         </List>
       )}
