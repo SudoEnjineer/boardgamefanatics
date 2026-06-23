@@ -13,7 +13,7 @@ export default async function RootLayout({ children }) {
   const player = await getCurrentPlayer();
 
   return (
-    <html lang="en">
+    <html lang="en" suppressHydrationWarning>
       <body>
         <ThemeRegistry>
           <Box sx={{ display: "flex" }}>

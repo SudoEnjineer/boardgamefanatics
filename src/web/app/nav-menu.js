@@ -11,6 +11,7 @@ import ListItemText from "@mui/material/ListItemText";
 import Button from "@mui/material/Button";
 import Box from "@mui/material/Box";
 import { logout } from "./login/actions";
+import ThemeToggle from "./theme-toggle";
 
 export const drawerWidth = 250;
 
@@ -42,12 +43,12 @@ export default function NavMenu({ player }) {
         "& .MuiDrawer-paper": {
           width: drawerWidth,
           boxSizing: "border-box",
-          bgcolor: "grey.900",
-          color: "common.white",
+          bgcolor: "#2B2118",
+          color: "#F2EAE1",
         },
       }}
     >
-      <Toolbar>
+      <Toolbar sx={{ display: "flex", justifyContent: "space-between" }}>
         <Typography
           variant="h6"
           noWrap
@@ -57,6 +58,7 @@ export default function NavMenu({ player }) {
         >
           BoardGameFanatics
         </Typography>
+        <ThemeToggle />
       </Toolbar>
       <List>
         {items.map((item) => (
